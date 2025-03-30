@@ -6,6 +6,7 @@ import { IBet, IPrizeSectors, IScaleSprite } from "../interfaces/interface";
 
 export class Wheel extends PIXI.Sprite {
   private app!: PIXI.Application;
+  private game!: Game;
   private rotateTicker: PIXI.TickerCallback<unknown> | null = null;
   private arrow!: PIXI.Sprite;
   private sectorWidth: number = 30;
@@ -16,10 +17,12 @@ export class Wheel extends PIXI.Sprite {
   constructor(
     wheelTexture: PIXI.Texture,
     app: PIXI.Application,
+    game: Game,
     prizeSectors: IPrizeSectors[],
   ) {
     super(wheelTexture);
     this.app = app;
+    this.game = game;
     this.prizeSectors = prizeSectors;
   }
 
@@ -110,7 +113,7 @@ export class Wheel extends PIXI.Sprite {
     this.scale.set(scaleX, scaleY);
   }
 
-  public rotateWheel(turn: number, game: Game, bet: IBet): void {
+  public rotateWheel(turn: number, bet: IBet): void {
     this.stopRotation();
 
     const baseRotation: number = turn * Math.PI * 2;
@@ -148,17 +151,17 @@ export class Wheel extends PIXI.Sprite {
             bet: bet,
             prize: prize,
           });
-          game.updateBalance(prize.money, this.isWin);
+          this.game.updateBalance(prize.money, this.isWin);
         } else {
           this.isWin = false;
           console.log("Failed: Winning sector doesn't match the bet", {
             bet: bet,
             prize: prize,
           });
-          game.updateBalance(bet.money, this.isWin);
+          this.game.updateBalance(bet.money, this.isWin);
         }
 
-        console.log(`Your balance ${game.getBalance()}`);
+        console.log(`Your balance ${this.game.getBalance()}`);
       }
     };
 

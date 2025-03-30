@@ -8,6 +8,7 @@ export class Menu {
   private wheel: Wheel;
   private app: PIXI.Application;
   private prizeSectors: IPrizeSectors[] = [];
+  private isMobile!: boolean;
   private topOffset: number = 15;
   public spinButton: PIXI.Sprite = new PIXI.Sprite(
     PIXI.Texture.from("btnRoll"),
@@ -26,6 +27,7 @@ export class Menu {
     this.wheel = wheel;
     this.prizeSectors = this.filterSectors(prizeSectors);
     this.game = game;
+    this.isMobile = this.game.isMobile;
     this.initial();
   }
 
@@ -61,23 +63,22 @@ export class Menu {
       const balance = this.game.getBalance();
       if (this.bet === null || balance < this.bet.money) return;
       const randomTurn = Math.floor(Math.random() * (10 - 2 + 1)) + 2;
-      this.wheel.rotateWheel(randomTurn, this.game, this.bet);
+      this.wheel.rotateWheel(randomTurn, this.bet);
       this.bet = null;
     });
     this.app.stage.addChild(this.spinButton);
   }
 
   public createBetButtons(): void {
-    const isMobile: boolean = window.innerWidth < 767;
-
-    const buttonWidth: number = window.innerWidth * (isMobile ? 0.21 : 0.08);
+    const buttonWidth: number =
+      window.innerWidth * (this.isMobile ? 0.21 : 0.08);
     const buttonHeight: number = window.innerHeight * 0.06;
     const marginX: number = window.innerWidth * 0.02;
     const marginY: number = window.innerHeight * 0.02;
 
     const fontSize: number = Menu.basedFontSize(0.03, 24);
 
-    const columns: number = isMobile ? 3 : this.prizeSectors.length;
+    const columns: number = this.isMobile ? 3 : this.prizeSectors.length;
     const rows: number = Math.ceil(this.prizeSectors.length / columns);
 
     const totalWidth: number = columns * buttonWidth + (columns - 1) * marginX;
@@ -103,7 +104,7 @@ export class Menu {
 
       button.addChild(labelText);
 
-      if (isMobile) {
+      if (this.isMobile) {
         const col: number = index % 3;
         const row: number = Math.floor(index / 3);
         button.x = startX + col * (buttonWidth + marginX);

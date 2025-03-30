@@ -3,6 +3,8 @@ import * as PIXI from "pixi.js";
 import { Wheel } from "./Wheel";
 import { Menu } from "./Menu";
 
+import { isMobile, isTablet } from "../utils/utils";
+
 import { IPrizeSectors, IScaleSprite } from "../interfaces/interface";
 
 export class Game extends PIXI.Container {
@@ -13,6 +15,8 @@ export class Game extends PIXI.Container {
   private _balance: number = 1000;
   private balanceText!: PIXI.Text;
   private offset: number = 20;
+  public isTablet: boolean = isTablet();
+  public isMobile: boolean = isMobile();
   public prizeSectors: IPrizeSectors[] = [
     { money: 1000, color: "#E1B42B", deg: [345, 15] },
     { money: 450, color: "#D62828", deg: [15, 45] },
@@ -32,7 +36,6 @@ export class Game extends PIXI.Container {
     super();
     this.app = app;
     this.appView = appView;
-
     this.resizeCanvas();
     window.addEventListener("resize", this.resizeCanvas.bind(this));
 
@@ -52,6 +55,9 @@ export class Game extends PIXI.Container {
 
     this.app.view.width = width;
     this.app.view.height = height;
+
+    this.isTablet = isTablet();
+    this.isMobile = isMobile();
 
     this.clearScene();
 
@@ -88,8 +94,10 @@ export class Game extends PIXI.Container {
   private loadWheel(): void {
     const wheelTexture: PIXI.Texture = PIXI.Texture.from("wheel");
 
-    this.wheel = new Wheel(wheelTexture, this.app, this.prizeSectors);
-    const scalePosition: IScaleSprite = Game.updateScale(this.wheel, 85, 90);
+    this.wheel = new Wheel(wheelTexture, this.app, this, this.prizeSectors);
+    const scalePosition: IScaleSprite = this.isTablet
+      ? Game.updateScale(this.wheel, 95, 50)
+      : Game.updateScale(this.wheel, 85, 90);
     this.wheel.setScale(scalePosition.scaleX, scalePosition.scaleY);
 
     this.wheel.setPosition(
@@ -103,7 +111,11 @@ export class Game extends PIXI.Container {
   private loadMenu(): void {
     this.menu = new Menu(this.app, this.wheel, this.prizeSectors, this);
 
-    const scalePosition: IScaleSprite = Game.updateScale(
+    const scalePosition: IScaleSprite = this.isMobile ? Game.updateScale(
+      this.menu.spinButton,
+      45,
+      40,
+    ) : Game.updateScale(
       this.menu.spinButton,
       35,
       35,
@@ -121,7 +133,7 @@ export class Game extends PIXI.Container {
       this.app.stage.removeChild(this.balanceText);
     }
 
-    const fontSize: number = Menu.basedFontSize(0.04, 48);
+    const fontSize: number = Menu.basedFontSize(0.06, 48);
 
     this.balanceText = new PIXI.Text(`$${String(this._balance)}`, {
       fontSize: fontSize,
