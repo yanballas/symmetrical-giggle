@@ -5,11 +5,16 @@ import { Game } from "./Game";
 import bg from "/bg-1.webp";
 import wheel from "/wheel.webp";
 import btnRoll from "/btn-roll.webp";
+import arrow from "/arrow.webp";
 
 export class Boot {
+  private app!: PIXI.Application;
+  private appView!: HTMLElement;
   private gameLoader: PIXI.Loader = PIXI.Loader.shared;
 
-  constructor() {
+  constructor(app: PIXI.Application, appView: HTMLElement) {
+    this.app = app;
+    this.appView = appView;
     this.init();
   }
 
@@ -17,7 +22,7 @@ export class Boot {
     try {
       await this.loadAssets();
       console.log("loading complete");
-      new Game();
+      new Game(this.app, this.appView);
     } catch (error: unknown) {
       console.error(new Error(`can't loading ${error}`));
     }
@@ -29,6 +34,7 @@ export class Boot {
         .add("bg", bg)
         .add("wheel", wheel)
         .add("btnRoll", btnRoll)
+        .add("arrow", arrow)
         .load(() => {
           resolve();
         })

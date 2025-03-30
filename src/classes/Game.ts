@@ -1,30 +1,45 @@
 import * as PIXI from "pixi.js";
 
 import { Wheel } from "./Wheel";
-import { IScaleSprite } from "../interfaces/interface";
+import { Menu } from "./Menu";
+
+import { IPrizeSectors, IScaleSprite } from "../interfaces/interface";
 
 export class Game extends PIXI.Container {
   private app!: PIXI.Application;
-  private appView: HTMLElement | null = document.querySelector("#app");
+  private appView!: HTMLElement;
   private wheel!: Wheel;
+  private menu!: Menu;
+  private _balance: number = 1000;
+  private balanceText!: PIXI.Text;
+  private offset: number = 20;
+  public prizeSectors: IPrizeSectors[] = [
+    { money: 1000, color: "#E1B42B", deg: [345, 15] },
+    { money: 450, color: "#D62828", deg: [15, 45] },
+    { money: 100, color: "#1E1E1E", deg: [45, 75] },
+    { money: 200, color: "#D62828", deg: [75, 105] },
+    { money: 450, color: "#1E1E1E", deg: [105, 135] },
+    { money: 100, color: "#D62828", deg: [135, 165] },
+    { money: 250, color: "#1E1E1E", deg: [165, 195] },
+    { money: 200, color: "#D62828", deg: [195, 225] },
+    { money: 100, color: "#1E1E1E", deg: [225, 255] },
+    { money: 150, color: "#D62828", deg: [255, 285] },
+    { money: 200, color: "#1E1E1E", deg: [285, 315] },
+    { money: 100, color: "#D62828", deg: [315, 345] },
+  ];
 
-  constructor() {
+  constructor(app: PIXI.Application, appView: HTMLElement) {
     super();
-    this.app = new PIXI.Application({
-      resizeTo: window,
-    });
+    this.app = app;
+    this.appView = appView;
 
-    if (this.appView) {
-      this.appView.appendChild(this.app.view);
-      this.resizeCanvas();
-      window.addEventListener("resize", this.resizeCanvas.bind(this));
+    this.resizeCanvas();
+    window.addEventListener("resize", this.resizeCanvas.bind(this));
 
-      this.loadBackground();
-      this.loadWheel();
-      this.loadMenu();
-    } else {
-      throw new Error("appView doesn't exists");
-    }
+    this.loadBackground();
+    this.loadWheel();
+    this.loadMenu();
+    this.showBalance();
   }
 
   private clearScene(): void {
@@ -32,19 +47,32 @@ export class Game extends PIXI.Container {
   }
 
   private resizeCanvas(): void {
-    if (this.appView) {
-      const width: number = this.appView.offsetWidth;
-      const height: number = this.appView.offsetHeight;
+    const width: number = this.appView.offsetWidth;
+    const height: number = this.appView.offsetHeight;
 
-      this.app.view.width = width;
-      this.app.view.height = height;
+    this.app.view.width = width;
+    this.app.view.height = height;
 
-      this.clearScene();
+    this.clearScene();
 
-      this.loadBackground();
-      this.loadWheel();
-      this.loadMenu();
+    this.loadBackground();
+    this.loadWheel();
+    this.loadMenu();
+    this.showBalance();
+  }
+
+  public getBalance(): number {
+    return this._balance;
+  }
+
+  public updateBalance(amount: number, action: boolean): void {
+    if (action) {
+      this._balance += amount;
+    } else {
+      this._balance -= amount;
     }
+
+    this.showBalance();
   }
 
   private loadBackground(): void {
@@ -60,42 +88,59 @@ export class Game extends PIXI.Container {
   private loadWheel(): void {
     const wheelTexture: PIXI.Texture = PIXI.Texture.from("wheel");
 
-    this.wheel = new Wheel(wheelTexture, this.app);
-    const scalePosition: IScaleSprite = this.updateScale(this.wheel, 85, 90);
+    this.wheel = new Wheel(wheelTexture, this.app, this.prizeSectors);
+    const scalePosition: IScaleSprite = Game.updateScale(this.wheel, 85, 90);
     this.wheel.setScale(scalePosition.scaleX, scalePosition.scaleY);
 
-    this.wheel.addWheel();
-
     this.wheel.setPosition(
+      this.wheel,
       this.app.screen.width / 2,
       this.app.screen.height / 2,
     );
+    this.wheel.addWheel();
   }
 
   private loadMenu(): void {
-    const buttonTexture: PIXI.Texture = PIXI.Texture.from("btnRoll");
-    const spinButton = new PIXI.Sprite(buttonTexture);
-    console.log(spinButton);
+    this.menu = new Menu(this.app, this.wheel, this.prizeSectors, this);
 
-    spinButton.interactive = true;
-    spinButton.buttonMode = true;
+    const scalePosition: IScaleSprite = Game.updateScale(
+      this.menu.spinButton,
+      35,
+      35,
+    );
 
-    spinButton.on("pointerdown", () => {
-      const randomTurn = Math.floor(Math.random() * (10 - 2 + 1)) + 2;
-      this.wheel.rotateWheel(randomTurn);
-    });
-
-    const scalePosition: IScaleSprite = this.updateScale(spinButton, 50, 40);
-    spinButton.scale.set(scalePosition.scaleX, scalePosition.scaleY);
-
-    spinButton.anchor.set(0.5, 0.5);
-    spinButton.x = this.app.screen.width / 2;
-    spinButton.y = this.app.screen.height - (window.innerHeight / 100 * 10);
-
-    this.app.stage.addChild(spinButton);
+    this.menu.spinButton.scale.set(scalePosition.scaleX, scalePosition.scaleY);
+    const spinButtonX = this.app.screen.width / 2;
+    const spinButtonY =
+      this.app.screen.height - (window.innerHeight / 100) * 10;
+    this.menu.setPosition(this.menu.spinButton, spinButtonX, spinButtonY);
   }
 
-  private updateScale(
+  private showBalance(): void {
+    if (this.balanceText) {
+      this.app.stage.removeChild(this.balanceText);
+    }
+
+    const fontSize: number = Menu.basedFontSize(0.04, 48);
+
+    this.balanceText = new PIXI.Text(`$${String(this._balance)}`, {
+      fontSize: fontSize,
+      fill: 0xffffff,
+      fontWeight: "bold",
+    });
+    this.balanceText.anchor.set(0.5, 0.5);
+    this.balanceText.x =
+      this.app.screen.width -
+      this.app.screen.width +
+      this.balanceText.width +
+      this.offset;
+    this.balanceText.y =
+      this.app.screen.height - this.balanceText.height - this.offset;
+
+    this.app.stage.addChild(this.balanceText);
+  }
+
+  static updateScale(
     sprite: PIXI.Sprite,
     widthPercent: number,
     heightPercent: number,
