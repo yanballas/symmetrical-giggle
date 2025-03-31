@@ -1,8 +1,10 @@
 import * as PIXI from "pixi.js";
+import gsap from "gsap";
 
 import { Game } from "./Game";
 
-import { IBet, IPrizeSectors, IScaleSprite } from "../interfaces/interface";
+import { IBet, IPrizeSectors } from "../interfaces/interface";
+import { AssetsManager } from "./AssetsManager";
 
 export class Wheel extends PIXI.Sprite {
   private app!: PIXI.Application;
@@ -10,7 +12,6 @@ export class Wheel extends PIXI.Sprite {
   private rotateTicker: PIXI.TickerCallback<unknown> | null = null;
   private arrow!: PIXI.Sprite;
   private sectorWidth: number = 30;
-  private pointerOffset: number = 15;
   public prizeSectors: IPrizeSectors[] = [];
   public isWin: boolean = false;
 
@@ -36,7 +37,7 @@ export class Wheel extends PIXI.Sprite {
     skeleton.drawCircle(centerX, centerY, radius);
 
     for (let i = 0; i < this.prizeSectors.length; i++) {
-      const angle: number = i * this.sectorWidth + this.pointerOffset;
+      const angle: number = i * this.sectorWidth;
       const radian: number = angle * (Math.PI / 180);
 
       skeleton.moveTo(centerX, centerY);
@@ -60,13 +61,13 @@ export class Wheel extends PIXI.Sprite {
 
     skeleton.lineStyle(3, 0xff0000);
     skeleton.moveTo(centerX, centerY - radius);
-    skeleton.lineTo(centerX, centerY - radius - 20);
+    skeleton.lineTo(centerX, centerY - radius - 30);
 
     this.app.stage.addChild(skeleton);
   }
 
   private drawArrowWheel(): void {
-    const arrowTexture: PIXI.Texture = PIXI.Texture.from("arrow");
+    const arrowTexture: PIXI.Texture = AssetsManager.getTexture("arrow");
     this.arrow = new PIXI.Sprite(arrowTexture);
     this.setPosition(
       this.arrow,
@@ -74,33 +75,32 @@ export class Wheel extends PIXI.Sprite {
       this.y - this.height / 2 + this.height / 6,
     );
     this.arrow.rotation = Math.PI;
-    const scalePosition: IScaleSprite = Game.updateScale(this.arrow, 10, 10);
-    this.arrow.scale.set(scalePosition.scaleX, scalePosition.scaleY);
+    Game.updateScale(this.arrow, 10, 10);
 
     this.app.stage.addChild(this.arrow);
   }
 
-  private getWinningPrize(rotation: number): IBet | null {
-    let angleDeg =
-      (360 - ((rotation * 180) / Math.PI - this.pointerOffset)) % 360;
-    if (angleDeg < 0) angleDeg += 360;
+  public getWinningPrize(rotation: number): IPrizeSectors | null {
+    const degrees: number = (rotation * 180) / Math.PI;
+    const normalizedAngle: number = Math.round((360 - (degrees % 360)) % 360);
 
-    const prize = this.prizeSectors.find(({ deg: [start, end] }) => {
-      if (start < end) {
-        return angleDeg >= start && angleDeg < end;
-      } else {
-        return angleDeg >= start || angleDeg < end;
-      }
-    });
-
-    return prize ? { money: prize.money, color: prize.color } : null;
+    return (
+      this.prizeSectors.find((sector) => {
+        const [start, end] = sector.deg;
+        if (start < end) {
+          return normalizedAngle >= start && normalizedAngle < end;
+        } else {
+          return normalizedAngle >= start || normalizedAngle < end;
+        }
+      }) || null
+    );
   }
 
   public addWheel(): void {
     this.app.stage.addChild(this);
-    this.rotation = (this.pointerOffset * Math.PI) / 180;
+    this.pivot.set(0.5, 0.5);
     this.drawArrowWheel();
-    // this.drawDebugWheelSkeleton();
+    this.drawDebugWheelSkeleton();
   }
 
   public setPosition(sprite: PIXI.Sprite, x: number, y: number): void {

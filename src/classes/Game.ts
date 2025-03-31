@@ -3,9 +3,15 @@ import * as PIXI from "pixi.js";
 import { Wheel } from "./Wheel";
 import { Menu } from "./Menu";
 
-import { isMobile, isTablet } from "../utils/utils";
+import {
+  currentHeight,
+  currentWidth,
+  isMobile,
+  isTablet,
+} from "../utils/utils";
 
-import { IPrizeSectors, IScaleSprite } from "../interfaces/interface";
+import { IPrizeSectors } from "../interfaces/interface";
+import { AssetsManager } from "./AssetsManager";
 
 export class Game extends PIXI.Container {
   private app!: PIXI.Application;
@@ -92,13 +98,12 @@ export class Game extends PIXI.Container {
   }
 
   private loadWheel(): void {
-    const wheelTexture: PIXI.Texture = PIXI.Texture.from("wheel");
+    const wheelTexture: PIXI.Texture = AssetsManager.getTexture("wheel");
 
     this.wheel = new Wheel(wheelTexture, this.app, this, this.prizeSectors);
-    const scalePosition: IScaleSprite = this.isTablet
-      ? Game.updateScale(this.wheel, 95, 50)
-      : Game.updateScale(this.wheel, 85, 90);
-    this.wheel.setScale(scalePosition.scaleX, scalePosition.scaleY);
+
+    if (this.isTablet) Game.updateScale(this.wheel, 90, 60);
+    else Game.updateScale(this.wheel, 80, 90);
 
     this.wheel.setPosition(
       this.wheel,
@@ -111,17 +116,9 @@ export class Game extends PIXI.Container {
   private loadMenu(): void {
     this.menu = new Menu(this.app, this.wheel, this.prizeSectors, this);
 
-    const scalePosition: IScaleSprite = this.isMobile ? Game.updateScale(
-      this.menu.spinButton,
-      45,
-      40,
-    ) : Game.updateScale(
-      this.menu.spinButton,
-      35,
-      35,
-    );
+    if (this.isTablet) Game.updateScale(this.menu.spinButton, 45, 40);
+    else Game.updateScale(this.menu.spinButton, 35, 35);
 
-    this.menu.spinButton.scale.set(scalePosition.scaleX, scalePosition.scaleY);
     const spinButtonX = this.app.screen.width / 2;
     const spinButtonY =
       this.app.screen.height - (window.innerHeight / 100) * 10;
@@ -152,29 +149,21 @@ export class Game extends PIXI.Container {
     this.app.stage.addChild(this.balanceText);
   }
 
-  static updateScale(
-    sprite: PIXI.Sprite,
-    widthPercent: number,
-    heightPercent: number,
-  ): IScaleSprite {
-    const vw: number = window.innerWidth / 100;
-    const vh: number = window.innerHeight / 100;
+  static updateScale(sprite: PIXI.Sprite, vw: number, vh: number): void {
+    const screenWidth: number = currentWidth();
+    const screenHeight: number = currentHeight();
 
-    const desiredWidth: number = vw * widthPercent;
-    const desiredHeight: number = vh * heightPercent;
+    const targetWidth: number = (screenWidth * vw) / 100;
+    const targetHeight:number = (screenHeight * vh) / 100;
 
-    const aspectRatio: number = sprite.width / sprite.height;
+    const originalWidth: number = sprite.texture.width;
+    const originalHeight: number = sprite.texture.height;
 
-    const scaleX: number = desiredWidth / sprite.width;
-    const scaleY: number = desiredHeight / sprite.height;
+    const scaleX: number = targetWidth / originalWidth;
+    const scaleY: number = targetHeight / originalHeight;
 
-    const scale = Math.min(scaleX, scaleY);
+    const finalScale: number = Math.min(scaleX, scaleY);
 
-    const scalePercent: IScaleSprite = {
-      scaleX: scale,
-      scaleY: scale / aspectRatio,
-    };
-
-    return scalePercent;
+    sprite.scale.set(finalScale);
   }
 }
