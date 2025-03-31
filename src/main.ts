@@ -8,6 +8,7 @@ async function initGame() {
     const app = new PIXI.Application({
       resizeTo: window,
     });
+    globalThis.__PIXI_APP__ = app;
 
     const appView: HTMLElement | null = document.querySelector("#app");
 
