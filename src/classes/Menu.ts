@@ -1,20 +1,25 @@
 import * as PIXI from "pixi.js";
-import { Wheel } from "./Wheel";
+import { OutlineFilter } from "pixi-filters";
+import gsap from "gsap";
 
-import { IBet, IPrizeSectors } from "../interfaces/interface";
+import { Wheel } from "./Wheel";
 import { Game } from "./Game";
+
+import { IBet, IBetButton, IPrizeSectors } from "../interfaces/interface";
+import { currentWidth } from "../utils/utils";
 
 export class Menu {
   private wheel: Wheel;
   private app: PIXI.Application;
   private prizeSectors: IPrizeSectors[] = [];
+  private buttonsBet: IBetButton[] = [];
   private isMobile!: boolean;
   private topOffset: number = 15;
+  private outlineFilter = new OutlineFilter(0, 0xffffff);
   public spinButton: PIXI.Sprite = new PIXI.Sprite(
     PIXI.Texture.from("btnRoll"),
   );
   public game!: Game;
-  public betButtons: PIXI.Graphics[] = [];
   public bet: IBet | null = null;
 
   constructor(
@@ -46,35 +51,49 @@ export class Menu {
     });
   }
 
-  public setPosition(
-    uiElement: PIXI.Sprite | PIXI.Text | PIXI.Graphics,
-    x: number,
-    y: number,
-  ): void {
-    if (!(uiElement instanceof PIXI.Graphics)) uiElement.anchor.set(0.5, 0.5);
-    uiElement.x = x;
-    uiElement.y = y;
+  private mapHandleButtons = new Map<PIXI.Graphics | PIXI.Sprite, () => void>();
+
+  private setButtonHandler(
+    button: PIXI.Graphics | PIXI.Sprite,
+    handler: () => void,
+  ) {
+    this.clearButtonHandler(button);
+    button.on("pointerdown", handler);
+    this.mapHandleButtons.set(button, handler);
   }
 
+  private clearButtonHandler(button: PIXI.Graphics | PIXI.Sprite) {
+    const existingHandler = this.mapHandleButtons.get(button);
+    if (existingHandler) {
+      button.off("pointerdown", existingHandler);
+      this.mapHandleButtons.delete(button);
+    }
+  }
+
+  private onHandleSpinButton = (): Promise<void> =>
+    this.handleSpinButtonClick();
+
+  private onHandleBetButton = (
+    button: PIXI.Graphics,
+    money: number,
+    color: string,
+  ): void => this.handleBetButtonClick(button, money, color);
+
   private createSpinButton(): void {
-    this.spinButton.interactive = true;
     this.spinButton.buttonMode = true;
-    this.spinButton.on("pointerdown", () => {
-      const balance = this.game.getBalance();
-      if (this.bet === null || balance < this.bet.money) return;
-      const randomTurn = Math.floor(Math.random() * (10 - 2 + 1)) + 2;
-      this.wheel.rotateWheel(randomTurn, this.bet);
-      this.bet = null;
-    });
+    this.spinButton.interactive = true;
+
+    this.setButtonHandler(this.spinButton, this.onHandleSpinButton);
     this.app.stage.addChild(this.spinButton);
   }
 
   public createBetButtons(): void {
-    const buttonWidth: number =
-      window.innerWidth * (this.isMobile ? 0.21 : 0.08);
-    const buttonHeight: number = window.innerHeight * 0.06;
-    const marginX: number = window.innerWidth * 0.02;
-    const marginY: number = window.innerHeight * 0.02;
+    const width: number = currentWidth();
+
+    const buttonWidth: number = width * (this.isMobile ? 0.21 : 0.08);
+    const buttonHeight: number = width * 0.04;
+    const marginX: number = width * 0.02;
+    const marginY: number = width * 0.02;
 
     const fontSize: number = Menu.basedFontSize(0.03, 24);
 
@@ -88,7 +107,9 @@ export class Menu {
     this.prizeSectors.forEach((sector, index) => {
       const { money, color } = sector;
 
-      const button: PIXI.Graphics = new PIXI.Graphics();
+      const button: IBetButton = new PIXI.Graphics() as IBetButton;
+      button.money = money;
+      button.color = color;
       button.beginFill(PIXI.utils.string2hex(color));
       button.drawRoundedRect(0, 0, buttonWidth, buttonHeight, 12);
       button.endFill();
@@ -119,19 +140,89 @@ export class Menu {
         button.y = startY;
       }
 
-      button.interactive = true;
       button.buttonMode = true;
-      button.on("pointerdown", () => this.handleBetButtonClick(money, color));
+      button.interactive = true;
+
+      this.setButtonHandler(button, () =>
+        this.onHandleBetButton(button, money, color),
+      );
+      this.buttonsBet.push(button);
 
       this.app.stage.addChild(button);
     });
   }
 
-  public handleBetButtonClick(money: number, color: string): void {
+  public async handleSpinButtonClick(): Promise<void> {
+    const balance = this.game.getBalance();
+    if (this.bet === null || balance < this.bet.money) return;
+
+    gsap.killTweensOf(this.spinButton.scale);
+
+    const { x: originalX, y: originalY }: { x: number; y: number } =
+      this.spinButton.scale;
+    const randomTurn = Math.floor(Math.random() * (10 - 2 + 1)) + 2;
+
+    gsap.fromTo(
+      this.spinButton.scale,
+      { x: originalX, y: originalY },
+      {
+        x: originalX * 0.8,
+        y: originalY * 0.8,
+        duration: 0.2,
+        ease: "power1.out",
+        yoyo: true,
+        repeat: 1,
+      },
+    );
+
+    this.clearButtonHandler(this.spinButton);
+    this.buttonsBet.forEach((button) => this.clearButtonHandler(button));
+    await this.wheel.rotateWheel(randomTurn, this.bet);
+    this.setButtonHandler(this.spinButton, this.onHandleSpinButton);
+    this.buttonsBet.forEach((button) =>
+      this.setButtonHandler(button, () =>
+        this.onHandleBetButton(button, button.money, button.color),
+      ),
+    );
+
+    this.bet = null;
+  }
+
+  public handleBetButtonClick(
+    currentButton: PIXI.Graphics,
+    money: number,
+    color: string,
+  ): void {
     this.bet = {
       money,
       color,
     };
+
+    if (currentButton.filters?.includes(this.outlineFilter)) return;
+
+    this.outlineFilter.thickness = 0;
+
+    this.buttonsBet.forEach((button) => {
+      button.filters?.forEach((filter) => gsap.killTweensOf(filter));
+      button.filters = [];
+    });
+
+    currentButton.filters = [this.outlineFilter];
+    gsap.to(this.outlineFilter, {
+      thickness: 4,
+      duration: 0.4,
+      ease: "power2.out",
+    });
+  }
+
+  public setPosition(
+    uiElement: PIXI.Sprite | PIXI.Text | PIXI.Graphics,
+    x: number,
+    y: number,
+  ): void {
+    if (!(uiElement instanceof PIXI.Graphics)) uiElement.anchor.set(0.5, 0.5);
+    uiElement.x = x;
+    uiElement.y = y;
   }
 
   public initial(): void {

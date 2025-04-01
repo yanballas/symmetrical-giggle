@@ -9,9 +9,7 @@ import { AssetsManager } from "./AssetsManager";
 export class Wheel extends PIXI.Sprite {
   private app!: PIXI.Application;
   private game!: Game;
-  private rotateTicker: PIXI.TickerCallback<unknown> | null = null;
   private arrow!: PIXI.Sprite;
-  private sectorWidth: number = 30;
   public prizeSectors: IPrizeSectors[] = [];
   public isWin: boolean = false;
 
@@ -27,44 +25,44 @@ export class Wheel extends PIXI.Sprite {
     this.prizeSectors = prizeSectors;
   }
 
-  private drawDebugWheelSkeleton(): void {
-    const skeleton: PIXI.Graphics = new PIXI.Graphics();
-    const centerX: number = this.x;
-    const centerY: number = this.y;
-    const radius: number = (this.width / 3) * 1;
+  // private drawDebugWheelSkeleton(): void {
+  //   const skeleton: PIXI.Graphics = new PIXI.Graphics();
+  //   const centerX: number = this.x;
+  //   const centerY: number = this.y;
+  //   const radius: number = (this.width / 3) * 1;
 
-    skeleton.lineStyle(2, 0x00ff00, 0.5);
-    skeleton.drawCircle(centerX, centerY, radius);
+  //   skeleton.lineStyle(2, 0x00ff00, 0.5);
+  //   skeleton.drawCircle(centerX, centerY, radius);
 
-    for (let i = 0; i < this.prizeSectors.length; i++) {
-      const angle: number = i * this.sectorWidth;
-      const radian: number = angle * (Math.PI / 180);
+  //   for (let i = 0; i < this.prizeSectors.length; i++) {
+  //     const angle: number = i * this.sectorWidth;
+  //     const radian: number = angle * (Math.PI / 180);
 
-      skeleton.moveTo(centerX, centerY);
-      skeleton.lineTo(
-        centerX + Math.sin(radian) * radius,
-        centerY - Math.cos(radian) * radius,
-      );
+  //     skeleton.moveTo(centerX, centerY);
+  //     skeleton.lineTo(
+  //       centerX + Math.sin(radian) * radius,
+  //       centerY - Math.cos(radian) * radius,
+  //     );
 
-      const text: PIXI.Text = new PIXI.Text(`${angle}°`, {
-        fill: 0xffffff,
-        fontSize: 12,
-        fontWeight: "bold",
-      });
-      text.anchor.set(0.5);
-      text.position.set(
-        centerX + Math.sin(radian) * (radius + 25),
-        centerY - Math.cos(radian) * (radius + 25),
-      );
-      this.app.stage.addChild(text);
-    }
+  //     const text: PIXI.Text = new PIXI.Text(`${angle}°`, {
+  //       fill: 0xffffff,
+  //       fontSize: 12,
+  //       fontWeight: "bold",
+  //     });
+  //     text.anchor.set(0.5);
+  //     text.position.set(
+  //       centerX + Math.sin(radian) * (radius + 25),
+  //       centerY - Math.cos(radian) * (radius + 25),
+  //     );
+  //     this.app.stage.addChild(text);
+  //   }
 
-    skeleton.lineStyle(3, 0xff0000);
-    skeleton.moveTo(centerX, centerY - radius);
-    skeleton.lineTo(centerX, centerY - radius - 30);
+  //   skeleton.lineStyle(3, 0xff0000);
+  //   skeleton.moveTo(centerX, centerY - radius);
+  //   skeleton.lineTo(centerX, centerY - radius - 30);
 
-    this.app.stage.addChild(skeleton);
-  }
+  //   this.app.stage.addChild(skeleton);
+  // }
 
   private drawArrowWheel(): void {
     const arrowTexture: PIXI.Texture = AssetsManager.getTexture("arrow");
@@ -100,7 +98,7 @@ export class Wheel extends PIXI.Sprite {
     this.app.stage.addChild(this);
     this.pivot.set(0.5, 0.5);
     this.drawArrowWheel();
-    this.drawDebugWheelSkeleton();
+    // this.drawDebugWheelSkeleton();
   }
 
   public setPosition(sprite: PIXI.Sprite, x: number, y: number): void {
@@ -113,65 +111,91 @@ export class Wheel extends PIXI.Sprite {
     this.scale.set(scaleX, scaleY);
   }
 
-  public rotateWheel(turn: number, bet: IBet): void {
-    this.stopRotation();
-
+  public async rotateWheel(turn: number, bet: IBet): Promise<void> {
+    const promiseError: Error = new Error("Error in complete");
     const baseRotation: number = turn * Math.PI * 2;
     const randomSector: number = Math.random() * Math.PI * 2;
     const totalRotation: number = baseRotation + randomSector;
-    const duration: number = 1000;
+    const startX: number = this.x;
+    const startY: number = this.y;
+    const duration: number = 12;
+    const shakeStart: number = 2;
+    const shakeEnd: number = duration - shakeStart;
+    const shakeAmplitude: number = 4;
+    const shakeFrequency: number = 25;
 
-    let tick: number = 0;
-    let rotationPassed: number = 0;
+    return new Promise<void>((res, rej) => {
+      const tl: gsap.core.Timeline = gsap.timeline({
+        onComplete: () => {
+          try {
+            this.stopRotation(tl);
+            console.log('я выполнил трай');
 
-    const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
+            const prize: IBet | null = this.getWinningPrize(this.rotation);
+            if (prize === null) throw new Error("Something wrong with prize");
 
-    this.rotateTicker = () => {
-      tick++;
+            this.isWin = prize.money === bet.money && prize.color === bet.color;
 
-      const t: number = Math.min(tick / duration, 1);
-      const easedT: number = easeOutCubic(t);
+            console.log(this.isWin ? "Success!" : "Failed!", { bet, prize });
 
-      const currentRotation: number = totalRotation * easedT;
-      const delta: number = currentRotation - rotationPassed;
+            this.game.updateBalance(
+              this.isWin ? prize.money : bet.money,
+              this.isWin,
+            );
 
-      this.rotation += delta;
-      rotationPassed = currentRotation;
+            console.log(`Your balance ${this.game.getBalance()}`);
+            res();
+          } catch (error: unknown) {
+            console.error(promiseError);
+            rej(error);
+          }
+        },
+      });
 
-      if (tick >= duration) {
-        this.stopRotation();
+      tl.to(this, {
+        rotation: this.rotation + totalRotation,
+        duration: duration,
+        ease: "power3.inOut",
+        onUpdate: () => {
+          const currentTime: number = tl.time();
 
-        const prize: IBet | null = this.getWinningPrize(this.rotation);
+          if (currentTime >= shakeStart && currentTime <= shakeEnd) {
+            const shakeDuration: number = shakeEnd - shakeStart;
+            const shakeProgress: number =
+              (currentTime - shakeStart) / shakeDuration;
 
-        if (prize === null) return;
+            const intensity: number = Math.sin(shakeProgress * Math.PI);
 
-        if (prize.money === bet.money && prize.color === bet.color) {
-          this.isWin = true;
-          console.log("Success: Winning sector matches the bet!", {
-            bet: bet,
-            prize: prize,
-          });
-          this.game.updateBalance(prize.money, this.isWin);
-        } else {
-          this.isWin = false;
-          console.log("Failed: Winning sector doesn't match the bet", {
-            bet: bet,
-            prize: prize,
-          });
-          this.game.updateBalance(bet.money, this.isWin);
-        }
+            const offsetX: number =
+              Math.sin(currentTime * shakeFrequency) *
+              shakeAmplitude *
+              intensity;
+            const offsetY: number =
+              Math.cos(currentTime * shakeFrequency) *
+              shakeAmplitude *
+              intensity;
 
-        console.log(`Your balance ${this.game.getBalance()}`);
-      }
-    };
-
-    this.app.ticker.add(this.rotateTicker);
+            gsap.set(this, {
+              x: startX + offsetX,
+              y: startY + offsetY,
+            });
+          } else {
+            gsap.set(this, { x: startX, y: startY });
+          }
+        },
+      });
+    });
   }
 
-  public stopRotation(): void {
-    if (this.rotateTicker) {
-      this.app.ticker.remove(this.rotateTicker);
-      this.rotateTicker = null;
+  public stopRotation(
+    ...targets: (gsap.core.Tween | gsap.core.Timeline | object)[]
+  ): void {
+    for (const target of targets) {
+      if ("kill" in target && typeof target.kill === "function") {
+        target.kill();
+      } else {
+        gsap.killTweensOf(target);
+      }
     }
   }
 }
