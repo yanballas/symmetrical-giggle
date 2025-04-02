@@ -12,15 +12,16 @@ import {
 
 import { IPrizeSectors } from "../interfaces/interface";
 import { AssetsManager } from "./AssetsManager";
+import { Store } from "./Store";
 
 export class Game extends PIXI.Container {
   private app!: PIXI.Application;
   private appView!: HTMLElement;
   private wheel!: Wheel;
   private menu!: Menu;
-  private _balance: number = 1000;
   private balanceText!: PIXI.Text;
   private offset: number = 20;
+  public store!: Store;
   public isTablet: boolean = isTablet();
   public isMobile: boolean = isMobile();
   public prizeSectors: IPrizeSectors[] = [
@@ -38,10 +39,11 @@ export class Game extends PIXI.Container {
     { money: 100, color: "#D62828", deg: [315, 345] },
   ];
 
-  constructor(app: PIXI.Application, appView: HTMLElement) {
+  constructor(app: PIXI.Application, appView: HTMLElement, store: Store) {
     super();
     this.app = app;
     this.appView = appView;
+    this.store = store;
     this.resizeCanvas();
     window.addEventListener("resize", this.resizeCanvas.bind(this));
 
@@ -70,20 +72,6 @@ export class Game extends PIXI.Container {
     this.loadBackground();
     this.loadWheel();
     this.loadMenu();
-    this.showBalance();
-  }
-
-  public getBalance(): number {
-    return this._balance;
-  }
-
-  public updateBalance(amount: number, action: boolean): void {
-    if (action) {
-      this._balance += amount;
-    } else {
-      this._balance -= amount;
-    }
-
     this.showBalance();
   }
 
@@ -125,14 +113,14 @@ export class Game extends PIXI.Container {
     this.menu.setPosition(this.menu.spinButton, spinButtonX, spinButtonY);
   }
 
-  private showBalance(): void {
+  public showBalance(): void {
     if (this.balanceText) {
       this.app.stage.removeChild(this.balanceText);
     }
 
     const fontSize: number = Menu.basedFontSize(0.06, 48);
 
-    this.balanceText = new PIXI.Text(`$${String(this._balance)}`, {
+    this.balanceText = new PIXI.Text(`$${String(this.store.balance)}`, {
       fontSize: fontSize,
       fill: 0xffffff,
       fontWeight: "bold",

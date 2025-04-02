@@ -6,7 +6,7 @@ import { Wheel } from "./Wheel";
 import { Game } from "./Game";
 
 import { IBet, IBetButton, IPrizeSectors } from "../interfaces/interface";
-import { currentWidth } from "../utils/utils";
+import { currentHeight, currentWidth } from "../utils/utils";
 
 export class Menu {
   private wheel: Wheel;
@@ -95,7 +95,9 @@ export class Menu {
     const marginX: number = width * 0.02;
     const marginY: number = width * 0.02;
 
-    const fontSize: number = Menu.basedFontSize(0.03, 24);
+    const fontSize: number = this.isMobile
+      ? Menu.basedFontSize(0.02, 18)
+      : Menu.basedFontSize(0.03, 24);
 
     const columns: number = this.isMobile ? 3 : this.prizeSectors.length;
     const rows: number = Math.ceil(this.prizeSectors.length / columns);
@@ -153,7 +155,7 @@ export class Menu {
   }
 
   public async handleSpinButtonClick(): Promise<void> {
-    const balance = this.game.getBalance();
+    const balance = this.game.store.balance;
     if (this.bet === null || balance < this.bet.money) return;
 
     gsap.killTweensOf(this.spinButton.scale);
@@ -185,6 +187,7 @@ export class Menu {
       ),
     );
 
+    this.game.showBalance();
     this.bet = null;
   }
 
@@ -235,8 +238,11 @@ export class Menu {
     maxSize: number = 36,
     minSize: number = 14,
   ): number {
-    const screenMin = Math.min(window.innerWidth, window.innerHeight);
-    const calculatedSize = screenMin * percentOfScreen;
+    const vw: number = currentWidth() / 100;
+    const vh: number = currentHeight() / 100;
+    const vmin: number = Math.min(vw, vh);
+
+    const calculatedSize: number = vmin * percentOfScreen * 100;
 
     return Math.max(minSize, Math.min(maxSize, calculatedSize));
   }

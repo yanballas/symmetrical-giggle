@@ -1,15 +1,18 @@
 import * as PIXI from "pixi.js";
 
-import { Game } from "./Game";
 import { AssetsManager } from "./AssetsManager";
+import { Game } from "./Game";
+import { Store } from "./Store";
 
 export class Boot {
   private app!: PIXI.Application;
   private appView!: HTMLElement;
+  private store!: Store;
 
   constructor(app: PIXI.Application, appView: HTMLElement) {
     this.app = app;
     this.appView = appView;
+    this.store = new Store();
     this.init();
   }
 
@@ -18,7 +21,7 @@ export class Boot {
     try {
       await AssetsManager.load();
       console.log("loading complete");
-      new Game(this.app, this.appView);
+      new Game(this.app, this.appView, this.store);
     } catch {
       console.error(error.message);
     }

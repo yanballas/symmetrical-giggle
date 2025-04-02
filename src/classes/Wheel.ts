@@ -129,7 +129,6 @@ export class Wheel extends PIXI.Sprite {
         onComplete: () => {
           try {
             this.stopRotation(tl);
-            console.log('я выполнил трай');
 
             const prize: IBet | null = this.getWinningPrize(this.rotation);
             if (prize === null) throw new Error("Something wrong with prize");
@@ -138,12 +137,12 @@ export class Wheel extends PIXI.Sprite {
 
             console.log(this.isWin ? "Success!" : "Failed!", { bet, prize });
 
-            this.game.updateBalance(
+            this.game.store.updateBalance(
               this.isWin ? prize.money : bet.money,
               this.isWin,
             );
 
-            console.log(`Your balance ${this.game.getBalance()}`);
+            console.log(`Your balance ${this.game.store.balance}`);
             res();
           } catch (error: unknown) {
             console.error(promiseError);
